@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <sstream>
 
-
+// Uncomment to debug cRZMessage input.
 //#define DEBUG_MESSAGES
 
 UIEventWatcher* pInstance = nullptr;
@@ -43,6 +43,7 @@ void __stdcall ClearQueue() {
     int lastUnknown = 0;
 #endif
 
+// Only tick on mouse press events.
 bool ShouldTickOnMessage(cGZMessage* message) {
     if (message->MessageID == 0x3) {
         if (message->Unknown == 0x287259f6 || message->Unknown == 0x28759f7 || message->Unknown == 0x28759f8)
@@ -156,6 +157,7 @@ void __declspec(naked) Activate_Hook()
     }
 }
 
+// Tick only in 1 frame, to avoid lag.
 void __declspec(naked) OncePerFrameUpdate_Hook()
 {
     __asm {
