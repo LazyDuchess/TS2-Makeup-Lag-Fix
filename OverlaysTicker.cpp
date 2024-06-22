@@ -11,10 +11,7 @@ constexpr auto ONTICK_HOOK_END_ADDR = 0x0057A694;
 bool __stdcall OnTick_Call() {
     if (pInstance == nullptr)
         return true;
-    bool returnVal = pInstance->QueuedTicks > 0;
-    if (returnVal)
-        pInstance->QueuedTicks--;
-    return returnVal;
+    return pInstance->DoTick;
 }
 
 void __declspec(naked) OnTick_Hook()
@@ -54,6 +51,6 @@ void __declspec(naked) OnTick_Hook()
 
 OverlaysTicker::OverlaysTicker() {
     pInstance = this;
-    QueuedTicks = 0;
+    DoTick = false;
     Hooking::MakeJMP((BYTE*)ONTICK_HOOK_ADDR, (DWORD)OnTick_Hook, 6);
 }

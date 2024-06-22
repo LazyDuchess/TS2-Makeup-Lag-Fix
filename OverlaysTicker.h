@@ -3,5 +3,5 @@
 class OverlaysTicker {
 public:
 	OverlaysTicker();
-	int QueuedTicks;
+	bool DoTick;
 };

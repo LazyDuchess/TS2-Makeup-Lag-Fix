@@ -1,21 +1,16 @@
 #include "pch.h"
 #include "Hooking.h"
 #include "UIEventWatcher.h"
+#include "cGZMessage.h"
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <sstream>
 
-#define QUEUE_TICKS
-#define TICKS_TO_QUEUE 10000
-#define CLEAR_QUEUE_EVERY_FRAME
+
+//#define DEBUG_MESSAGES
 
 UIEventWatcher* pInstance = nullptr;
-
-// POTENTIAL ADDRESSES:
-// 0x00578b2c - TOO LAGGY
-// 0x0064655d - Triggers when entering jewelry and full face makeup, multiple times at once. Promising? - TOO LAGGY
-// 0x005779e0 - Triggers like above but not as often. dunno.
-// 0x0057521e - Triggers when hovering over certain UI elements.
-
-// 0x00577aaa - nTSUICAS::cTSUICASComponentOverlays::DoMessage
-// 0x00cf3930 - Triggers a lot in jewelry.
 
 // Address of nTSUICAS::cTSUICASComponentOverlays::Activate
 constexpr auto ACTIVATE_HOOK_ADDR = 0x0057a6c1;
@@ -43,22 +38,73 @@ void __stdcall ClearQueue() {
     pInstance->ClearQueue();
 }
 
+#ifdef DEBUG_MESSAGES
+    int lastMessage = 0;
+    int lastUnknown = 0;
+#endif
+
+bool ShouldTickOnMessage(cGZMessage* message) {
+    if (message->MessageID == 0x3) {
+        if (message->Unknown == 0x287259f6 || message->Unknown == 0x28759f7 || message->Unknown == 0x28759f8)
+            return true;
+    }
+    return false;
+}
+
+void __stdcall QueueTickMessage(cGZMessage* message) {
+#ifdef DEBUG_MESSAGES
+    if (message->MessageID != lastMessage || message->Unknown != lastUnknown) {
+        wprintf(L"Received new message: 0x");
+    }
+    else
+        wprintf(L"Repeated message: 0x");
+    lastMessage = message->MessageID;
+    lastUnknown = message->Unknown;
+
+    std::wostringstream hexs;  // note the 'w'
+    hexs << std::hex << lastMessage;
+
+    std::wstring hex = hexs.str();
+
+    std::wostringstream hexs2;  // note the 'w'
+    hexs2 << std::hex << lastUnknown;
+
+    std::wstring hex2 = hexs2.str();
+
+    wprintf(hex.c_str());
+    wprintf(L", 0x");
+    wprintf(hex2.c_str());
+    wprintf(L"\n");
+#endif
+    if (pInstance == nullptr) 
+        return;
+
+    if (ShouldTickOnMessage(message)) {
+#ifdef DEBUG_MESSAGES
+        wprintf(L"Ticking!\n");
+#endif
+        pInstance->QueueTick();
+    }
+}
+
 void __declspec(naked) DoMessage_Hook()
 {
     __asm {
-        push eax
+        mov eax, [esp+0x4]
+        //push eax
         push edx
         push ecx
         push edi
         push ebp
         push esi
-        call QueueTick
+        push eax
+        call QueueTickMessage
         pop esi
         pop ebp
         pop edi
         pop ecx
         pop edx
-        pop eax
+        //pop eax
         // Original
         push ebp
         mov ebp, esp
@@ -141,19 +187,17 @@ UIEventWatcher::UIEventWatcher(OverlaysTicker* ticker) {
     Hooking::MakeJMP((BYTE*)ACTIVATE_HOOK_ADDR, (DWORD)Activate_Hook, 5);
     Hooking::MakeJMP((BYTE*)DOMESSAGE_HOOK_ADDR, (DWORD)DoMessage_Hook, 6);
     Hooking::MakeJMP((BYTE*)UNKNOWN_HOOK_ADDR, (DWORD)Unknown_Hook, 5);
-#ifdef CLEAR_QUEUE_EVERY_FRAME
     Hooking::MakeJMP((BYTE*)ONCEPERFRAMEUPDATE_HOOK_ADDR, (DWORD)OncePerFrameUpdate_Hook, 7);
+#ifdef DEBUG_MESSAGES
+    AllocConsole();
+    freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
 #endif
 }
 
 void UIEventWatcher::QueueTick() {
-#ifdef  QUEUE_TICKS
-    _ticker->QueuedTicks += TICKS_TO_QUEUE;
-#else
-    _ticker->QueuedTicks = TICKS_TO_QUEUE;
-#endif //  QUEUE_TICKS
+    _ticker->DoTick = true;
 }
 
 void UIEventWatcher::ClearQueue() {
-    _ticker->QueuedTicks = 0;
+    _ticker->DoTick = false;
 }

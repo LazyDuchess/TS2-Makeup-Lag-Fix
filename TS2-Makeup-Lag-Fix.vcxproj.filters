@@ -30,6 +30,9 @@
     <ClInclude Include="UIEventWatcher.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="cGZMessage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
